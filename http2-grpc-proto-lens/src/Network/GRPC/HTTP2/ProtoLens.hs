@@ -11,6 +11,7 @@ module Network.GRPC.HTTP2.ProtoLens where
 import           Data.Binary.Builder (fromByteString, singleton, putWord32be)
 import           Data.Binary.Get (getByteString, getInt8, getWord32be, runGetIncremental)
 import qualified Data.ByteString.Char8 as ByteString
+import           Data.List.NonEmpty (nonEmpty, toList)
 import           Data.ProtoLens.Encoding (encodeMessage, decodeMessage)
 import           Data.ProtoLens.Message (Message)
 import           Data.ProtoLens.Service.Types (Service(..), HasMethod, HasMethodImpl(..))
@@ -29,16 +30,16 @@ import Network.GRPC.HTTP2.Encoding
 data RPC (s :: *) (m :: Symbol) = RPC
 
 instance (Service s, HasMethod s m) => IsRPC (RPC s m) where
-  path rpc = "/" <> pkg rpc Proxy <> "." <> srv rpc Proxy <> "/" <> meth rpc Proxy
+  path rpc = "/" <> maybe "" ( <> ".") (pkg rpc Proxy) <> srv rpc Proxy <> "/" <> meth rpc Proxy
     where
-      pkg :: (Service s) => RPC s m -> Proxy (ServicePackage s) -> HeaderValue
-      pkg _ p = ByteString.pack $ symbolVal p
+      pkg :: (Service s) => RPC s m -> Proxy (ServicePackage s) -> Maybe HeaderValue
+      pkg _ p = ByteString.pack . toList <$> nonEmpty (symbolVal p)
 
       srv :: (Service s) => RPC s m -> Proxy (ServiceName s) -> HeaderValue
       srv _ p = ByteString.pack $ symbolVal p
 
       meth :: (Service s, HasMethod s m) => RPC s m -> Proxy (MethodName s m) -> HeaderValue
-      meth _ p = ByteString.pack $ symbolVal p 
+      meth _ p = ByteString.pack $ symbolVal p
   {-# INLINE path #-}
 
 instance (Service s, HasMethod s m, i ~ MethodInput s m)
